@@ -40,22 +40,7 @@ jobs:
       - name: Check whose turn it is
         id: turn
         run: |
-          if [ -f RESULT.md ]; then
-            echo "turn=finished" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          N=$(ls -1 go_board_*.png | sed 's/[^0-9]//g' | sort -n | tail -1)
-          echo "n=$N" >> "$GITHUB_OUTPUT"
-          OUT=$(python baduk_tools.py read "go_board_${N}.png")
-          echo "$OUT"
-          B=$(echo "$OUT" | sed -n 's/.*black=\([0-9]*\).*/\1/p')
-          W=$(echo "$OUT" | sed -n 's/.*white=\([0-9]*\).*/\1/p')
-          echo "black=$B white=$W"
-          if [ "$B" = "$W" ]; then
-            echo "turn=black" >> "$GITHUB_OUTPUT"
-          else
-            echo "turn=white" >> "$GITHUB_OUTPUT"
-          fi
+          python baduk_tools.py turn >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v7.0.0
         if: github.event.inputs.probe == 'true' || steps.turn.outputs.turn == 'black'

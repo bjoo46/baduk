@@ -9,6 +9,7 @@ from pathlib import Path
 from PIL import Image
 
 from baduk_tools import LABELS, draw, read
+from go_rules import group, play, transition
 
 
 def boards():
@@ -20,41 +21,8 @@ def boards():
     return result
 
 
-def group(board, point):
-    color = board[point]
-    seen, liberties, todo = set(), set(), [point]
-    while todo:
-        x, y = todo.pop()
-        if (x, y) in seen:
-            continue
-        seen.add((x, y))
-        for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-            if not (0 <= q[0] < 19 and 0 <= q[1] < 19):
-                continue
-            if q not in board:
-                liberties.add(q)
-            elif board[q] == color and q not in seen:
-                todo.append(q)
-    return seen, liberties
-
-
 def move_board(before, point):
-    if point in before:
-        raise ValueError('occupied intersection')
-    after = dict(before)
-    after[point] = 'W'
-    captured = set()
-    x, y = point
-    for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-        if after.get(q) == 'B':
-            stones, liberties = group(after, q)
-            if not liberties:
-                captured |= stones
-    for q in captured:
-        del after[q]
-    if not group(after, point)[1]:
-        raise ValueError('suicide move')
-    return after, captured
+    return play(before, point, 'W')
 
 
 def coord(label):
@@ -84,8 +52,8 @@ def prepare():
         print(f'Latest board {n} is white; waiting for black.')
         return
     before, _, _, _ = read(files[n])
-    if sum(v == 'B' for v in before.values()) != sum(v == 'W' for v in before.values()) + 1:
-        raise ValueError('latest board is not a black-to-white position')
+    previous = read(files[n-1])[0] if n > 1 else {}
+    transition(previous, before, 'B', [read(files[k])[0] for k in sorted(files) if k < n])
     state = '\n'.join(f'{LABELS[x]}{19-y} {kind}' for (x, y), kind in
                       sorted(before.items(), key=lambda item: (item[0][1], item[0][0])))
     Path('board_state.txt').write_text(
@@ -100,11 +68,18 @@ def prepare():
 def restore_intersection(img, xs, ys, spacing, point):
     # A clean intersection copied from the earliest board avoids redrawing
     # the whole textured board when a capture removes one stone.
-    base = Image.open('go_board_1.png').convert('RGB')
-    bx, by = read('go_board_1.png')[1:3]
+    base_path = Path(__file__).with_name('go_board_1.png')
+    base = Image.open(base_path).convert('RGB')
+    occupied, bx, by, _ = read(base_path)
     x, y = point
     stars = {3, 9, 15}
-    template = (3, 15) if x in stars and y in stars else (5, 5)
+    def topology(p):
+        px, py = p
+        return (px if px in (0, 18) else -1,
+                py if py in (0, 18) else -1,
+                px in stars and py in stars)
+    template = next((px, py) for py in range(19) for px in range(19)
+                    if (px, py) not in occupied and topology((px, py)) == topology(point))
     radius = int(round(spacing * .53))
     sx, sy = round(bx[template[0]]), round(by[template[1]])
     dx, dy = round(xs[x]), round(ys[y])
@@ -128,8 +103,8 @@ def apply():
     point = coord(decision['move'])
     before, xs, ys, spacing = read(files[n])
     after, captured = move_board(before, point)
-    if n >= 3 and files.get(n-2) and after == read(files[n-2])[0]:
-        raise ValueError('immediate ko recapture')
+    if any(after == read(p)[0] for p in files.values()):
+        raise ValueError('ko/repeated board position')
     target = Path(f'go_board_{n+1}.png')
     if target.exists():
         raise ValueError(f'{target} already exists')

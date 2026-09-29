@@ -59,6 +59,8 @@ python baduk_tools.py play <src> <dst> <gx> <gy>
 
 ## 자동화
 
+포획·자충수·패·차례·종료 처리는 [공통 규칙](RULES.md)을 따른다. 포획 후 차례를 판 위 돌 수로 판단하지 않는다.
+
 `go_board_*.png` 가 push되면 두 워크플로가 각자 자기 차례인지 확인하고, 차례일 때만 한 수를 둡니다.
 
 - `.github/workflows/black-move.yml` — 흑. `.github/black-move.md` 지시로 Claude가 착수

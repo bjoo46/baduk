@@ -1,18 +1,22 @@
-"""Read a baduk board image and draw a stone onto it.
+"""Read a baduk board image and render a legal move with captures.
 
-Used by the 1-minute black-move loop: load the highest-numbered board image,
-detect the grid and existing stones, then draw the black move on top.
+Detect the grid and stones, validate captures, suicide and board repetition,
+and verify the rendered output. Both Black and White use the same rules.
 
     python baduk_tools.py read  <image>
     python baduk_tools.py play  <src> <dst> <gx> <gy> [B|W]  # 0-indexed
     python baduk_tools.py coords                        # board labels reference
+    python baduk_tools.py turn                          # validated next turn
 
 gx runs 0..18 left to right, gy runs 0..18 top to bottom.
 """
 import sys
+import re
+from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
+from go_rules import play, transition
 
 LABELS = "ABCDEFGHJKLMNOPQRST"
 
@@ -112,13 +116,49 @@ def main():
         kind = sys.argv[6].upper() if len(sys.argv) > 6 else "B"
         if kind not in ("B", "W") or not (0 <= gx < 19 and 0 <= gy < 19):
             raise SystemExit("expected 0..18 grid coordinates and stone B or W")
+        source = Path(src)
+        if Path(dst).resolve() == source.resolve() or Path(dst).exists():
+            raise SystemExit('output must be a new file; never overwrite a board')
         pos, xs, ys, spacing = read(src)
-        if (gx, gy) in pos:
-            raise SystemExit(f"({gx},{gy}) {LABELS[gx]}{19 - gy} is already occupied")
+        match = re.fullmatch(r'go_board_(\d+)\.png', source.name)
+        history = []
+        if match:
+            n = int(match[1])
+            if kind != ('B' if n % 2 == 0 else 'W'):
+                raise SystemExit('wrong side to move for this board number')
+            for p in source.parent.glob('go_board_*.png'):
+                m = re.fullmatch(r'go_board_(\d+)\.png', p.name)
+                if m and int(m[1]) <= n:
+                    history.append(read(p)[0])
+        after, captured = play(pos, (gx, gy), kind, history)
         img = Image.open(src).convert("RGB")
+        if captured:
+            from auto_white import restore_intersection
+            for stone in captured:
+                restore_intersection(img, xs, ys, spacing, stone)
+            for stone, color in pos.items():
+                if stone not in captured and any(abs(stone[0]-q[0])+abs(stone[1]-q[1]) == 1 for q in captured):
+                    draw(img, xs, ys, spacing, *stone, color)
         draw(img, xs, ys, spacing, gx, gy, kind)
         img.save(dst)
-        print(f"{LABELS[gx]}{19 - gy} played -> {dst}")
+        if read(dst)[0] != after:
+            Path(dst).unlink()
+            raise SystemExit('rendered board does not match legal position')
+        print(f"{LABELS[gx]}{19 - gy} played -> {dst}; captured={len(captured)}")
+    elif cmd == 'turn':
+        if Path('RESULT.md').exists():
+            print('turn=finished')
+            return
+        files = {int(m[1]): p for p in Path('.').glob('go_board_*.png')
+                 if (m := re.fullmatch(r'go_board_(\d+)\.png', p.name))}
+        n = max(files)
+        after = read(files[n])[0]
+        before = read(files[n-1])[0] if n > 1 else {}
+        mover = 'B' if n % 2 else 'W'
+        history = [read(files[k])[0] for k in sorted(files) if k < n]
+        transition(before, after, mover, history)
+        print(f'n={n}')
+        print('turn=' + ('white' if mover == 'B' else 'black'))
     else:
         raise SystemExit(__doc__)
 
