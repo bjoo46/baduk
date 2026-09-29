@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "go_board_*.png"
+  workflow_dispatch:
 
 concurrency:
   group: black-move
