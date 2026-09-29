@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from baduk_tools import LABELS, draw, read
+from baduk_tools import LABELS, draw, read, save_move
 from go_rules import group, play, transition
 
 
@@ -115,7 +115,7 @@ def apply():
         if stone not in captured and any(abs(stone[0]-q[0]) + abs(stone[1]-q[1]) == 1 for q in captured):
             draw(img, xs, ys, spacing, *stone, color)
     draw(img, xs, ys, spacing, *point, 'W')
-    img.save(target)
+    save_move(img, target, *point, 'W')
     actual = read(target)[0]
     if actual != after:
         target.unlink()

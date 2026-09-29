@@ -6,8 +6,10 @@ The strip goes outside the grid, so `baduk_tools.read` is unaffected.
 """
 import os
 import sys
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+from PIL.PngImagePlugin import PngInfo
 
 STRIP = 64
 
@@ -21,9 +23,27 @@ def font(size):
     return ImageFont.load_default()
 
 
-def annotate(path, number, color, coord):
-    img = Image.open(path).convert("RGB")
-    w, h = img.size
+def board_height(img):
+    stored = img.info.get('baduk_board_height')
+    if stored is not None:
+        height = int(stored)
+        if not 0 < height <= img.height:
+            raise ValueError('invalid board height metadata')
+        return height
+    # Older annotated boards have no metadata. Match the original board size.
+    original = Path(__file__).with_name('go_board_1.png')
+    if original.exists():
+        with Image.open(original) as base:
+            if img.width == base.width and img.height >= base.height:
+                return base.height
+    return img.height
+
+
+def save_annotated(img, path, number, color, coord):
+    if color not in ('B', 'W'):
+        raise ValueError('invalid move color')
+    w, h = img.width, board_height(img)
+    img = img.crop((0, 0, w, h)).convert('RGB')
     bg = img.getpixel((8, h // 2))
     out = Image.new("RGB", (w, h + STRIP), bg)
     out.paste(img, (0, 0))
@@ -31,8 +51,16 @@ def annotate(path, number, color, coord):
     label = f"{number}  {'Black' if color == 'B' else 'White'} {coord}"
     draw.text((w // 2, h + STRIP // 2), label, fill=(60, 40, 20),
               anchor="mm", font=font(int(STRIP * 0.55)))
-    out.save(path)
+    metadata = PngInfo()
+    metadata.add_text('baduk_board_height', str(h))
+    metadata.add_text('baduk_last_move', f'{number} {color} {coord}')
+    out.save(path, pnginfo=metadata)
     return label
+
+
+def annotate(path, number, color, coord):
+    with Image.open(path) as img:
+        return save_annotated(img, path, number, color, coord)
 
 
 if __name__ == "__main__":

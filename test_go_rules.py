@@ -4,7 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from baduk_tools import read, draw, _complete_grid_axis
+from baduk_tools import read, draw, _complete_grid_axis, save_move
+from annotate_move import annotate, STRIP
 from auto_white import restore_intersection
 from go_rules import play, transition
 from PIL import Image
@@ -12,6 +13,23 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent
 
 class RulesTests(unittest.TestCase):
+    def test_footer_does_not_affect_detection_or_accumulate(self):
+        source=ROOT/'go_board_22.png'
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'go_board_22.png'
+            img=Image.open(source).convert('RGB')
+            save_move(img,path,1,4,'W')
+            self.assertEqual(read(path)[0],read(source)[0])
+            with Image.open(path) as first:
+                size=first.size
+                self.assertEqual(size,(img.width,img.height+STRIP))
+                self.assertEqual(first.info['baduk_last_move'],'22 W B15')
+                self.assertEqual(first.crop((0,0,img.width,img.height)).tobytes(),img.tobytes())
+            annotate(path,22,'W','B15')
+            with Image.open(path) as second:
+                self.assertEqual(second.size,size)
+            self.assertEqual(read(path)[0],read(source)[0])
+
     def test_hidden_internal_grid_line(self):
         axis = [61.5+40*i for i in range(19)]
         self.assertEqual(_complete_grid_axis(axis[:3]+axis[4:]), axis)

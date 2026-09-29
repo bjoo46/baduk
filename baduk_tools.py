@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 from go_rules import play, transition
+from annotate_move import board_height, save_annotated
 
 LABELS = "ABCDEFGHJKLMNOPQRST"
 
@@ -66,6 +67,7 @@ def _complete_grid_axis(centers):
 def read(path):
     """Return {(gx, gy): 'B'|'W'} for occupied points, plus grid and spacing."""
     img = Image.open(path).convert("RGB")
+    img = img.crop((0, 0, img.width, board_height(img)))
     a = np.asarray(img, dtype=np.float32)
     xs, ys = find_grid(a)
     if len(xs) != 19 or len(ys) != 19:
@@ -119,6 +121,12 @@ def draw(img, xs, ys, spacing, gx, gy, kind):
     return img
 
 
+def save_move(img, path, gx, gy, kind):
+    match = re.fullmatch(r'go_board_(\d+)\.png', Path(path).name)
+    number = match[1] if match else 'Move'
+    return save_annotated(img, path, number, kind, f'{LABELS[gx]}{19-gy}')
+
+
 def main():
     cmd = sys.argv[1]
     if cmd == "read":
@@ -156,7 +164,7 @@ def main():
                 if stone not in captured and any(abs(stone[0]-q[0])+abs(stone[1]-q[1]) == 1 for q in captured):
                     draw(img, xs, ys, spacing, *stone, color)
         draw(img, xs, ys, spacing, gx, gy, kind)
-        img.save(dst)
+        save_move(img, dst, gx, gy, kind)
         if read(dst)[0] != after:
             Path(dst).unlink()
             raise SystemExit('rendered board does not match legal position')
