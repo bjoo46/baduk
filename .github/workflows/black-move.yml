@@ -74,12 +74,17 @@ jobs:
         run: |
           # A secret pasted from a terminal can carry a trailing CRLF, which
           # makes the token invalid. Strip whitespace before trusting it.
+          # The stripped value no longer matches the secret GitHub masks
+          # automatically, so register it for masking before it reaches
+          # $GITHUB_ENV -- otherwise later env dumps print it in the clear.
           if [ -n "$OAUTH_TOKEN" ]; then
             CLEAN=$(printf '%s' "$OAUTH_TOKEN" | tr -d '[:space:]')
+            echo "::add-mask::$CLEAN"
             [ "${#CLEAN}" = "${#OAUTH_TOKEN}" ] || echo "::notice::OAuth 토큰을 ${#OAUTH_TOKEN}자에서 ${#CLEAN}자로 정리했습니다."
             echo "CLAUDE_CODE_OAUTH_TOKEN=$CLEAN" >> "$GITHUB_ENV"
           elif [ -n "$API_KEY" ]; then
             CLEAN=$(printf '%s' "$API_KEY" | tr -d '[:space:]')
+            echo "::add-mask::$CLEAN"
             [ "${#CLEAN}" = "${#API_KEY}" ] || echo "::notice::API 키를 ${#API_KEY}자에서 ${#CLEAN}자로 정리했습니다."
             echo "ANTHROPIC_API_KEY=$CLEAN" >> "$GITHUB_ENV"
           else
