@@ -6,11 +6,6 @@ on:
     paths:
       - "go_board_*.png"
   workflow_dispatch:
-    inputs:
-      probe:
-        description: "Claude 인증만 확인하고 착수하지 않는다"
-        type: boolean
-        default: false
 
 concurrency:
   group: black-move
@@ -58,16 +53,16 @@ jobs:
           fi
 
       - uses: actions/setup-node@v7.0.0
-        if: github.event.inputs.probe == 'true' || steps.turn.outputs.turn == 'black'
+        if: steps.turn.outputs.turn == 'black'
         with:
           node-version: "20"
 
       - name: Install Claude Code
-        if: github.event.inputs.probe == 'true' || steps.turn.outputs.turn == 'black'
+        if: steps.turn.outputs.turn == 'black'
         run: npm install -g --silent @anthropic-ai/claude-code
 
       - name: Export credentials
-        if: github.event.inputs.probe == 'true' || steps.turn.outputs.turn == 'black'
+        if: steps.turn.outputs.turn == 'black'
         env:
           OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -80,10 +75,6 @@ jobs:
             echo "::error::CLAUDE_CODE_OAUTH_TOKEN 또는 ANTHROPIC_API_KEY 시크릿이 필요합니다."
             exit 1
           fi
-
-      - name: Probe Claude auth
-        if: github.event.inputs.probe == 'true'
-        run: claude -p "Reply with exactly: OK" --output-format text
 
       - name: Play the black move
         if: steps.turn.outputs.turn == 'black'
