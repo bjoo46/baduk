@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from baduk_tools import read, draw
+from baduk_tools import read, draw, _complete_grid_axis
 from auto_white import restore_intersection
 from go_rules import play, transition
 from PIL import Image
@@ -12,6 +12,12 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent
 
 class RulesTests(unittest.TestCase):
+    def test_hidden_internal_grid_line(self):
+        axis = [61.5+40*i for i in range(19)]
+        self.assertEqual(_complete_grid_axis(axis[:3]+axis[4:]), axis)
+        # Missing outer boundaries cannot be inferred safely.
+        self.assertEqual(_complete_grid_axis(axis[1:]), axis[1:])
+
     def test_both_colors_capture_and_transition(self):
         for color, enemy in [('B', 'W'), ('W', 'B')]:
             before = {(1,1):enemy, (0,1):color, (1,0):color, (2,1):color}

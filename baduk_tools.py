@@ -44,7 +44,23 @@ def find_grid(a):
     cols = np.where(dark.sum(axis=0) > 0.5 * h)[0]
     if len(rows) == 0 or len(cols) == 0:
         raise ValueError("no grid lines found")
-    return _line_centers(cols), _line_centers(rows)
+    return _complete_grid_axis(_line_centers(cols)), _complete_grid_axis(_line_centers(rows))
+
+
+def _complete_grid_axis(centers):
+    # Dense stones can hide an internal grid line from the dark-pixel threshold.
+    # Recover only regular internal gaps with both boundary lines present.
+    if len(centers) == 19 or len(centers) < 10:
+        return centers
+    step = float(np.median(np.diff(centers)))
+    indices = [int(round((c - centers[0]) / step)) for c in centers]
+    if indices[-1] != 18 or len(set(indices)) != len(indices):
+        return centers
+    if any(abs(c - (centers[0] + i * step)) > step * .08
+           for c, i in zip(centers, indices)):
+        return centers
+    known = dict(zip(indices, centers))
+    return [known.get(i, centers[0] + i * step) for i in range(19)]
 
 
 def read(path):
