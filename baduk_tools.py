@@ -4,7 +4,7 @@ Used by the 1-minute black-move loop: load the highest-numbered board image,
 detect the grid and existing stones, then draw the black move on top.
 
     python baduk_tools.py read  <image>
-    python baduk_tools.py play  <src> <dst> <gx> <gy>     # gx, gy are 0-indexed
+    python baduk_tools.py play  <src> <dst> <gx> <gy> [B|W]  # 0-indexed
     python baduk_tools.py coords                        # board labels reference
 
 gx runs 0..18 left to right, gy runs 0..18 top to bottom.
@@ -109,11 +109,14 @@ def main():
               f"white={sum(1 for v in pos.values() if v == 'W')} spacing={spacing:.1f}")
     elif cmd == "play":
         src, dst, gx, gy = sys.argv[2], sys.argv[3], int(sys.argv[4]), int(sys.argv[5])
+        kind = sys.argv[6].upper() if len(sys.argv) > 6 else "B"
+        if kind not in ("B", "W") or not (0 <= gx < 19 and 0 <= gy < 19):
+            raise SystemExit("expected 0..18 grid coordinates and stone B or W")
         pos, xs, ys, spacing = read(src)
         if (gx, gy) in pos:
             raise SystemExit(f"({gx},{gy}) {LABELS[gx]}{19 - gy} is already occupied")
         img = Image.open(src).convert("RGB")
-        draw(img, xs, ys, spacing, gx, gy, "B")
+        draw(img, xs, ys, spacing, gx, gy, kind)
         img.save(dst)
         print(f"{LABELS[gx]}{19 - gy} played -> {dst}")
     else:
