@@ -94,7 +94,18 @@ jobs:
 
       - name: Probe Claude auth
         if: github.event.inputs.probe == 'true'
-        run: claude -p "Reply with OK" --output-format text
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            case "$ANTHROPIC_API_KEY" in
+              sk-ant-api*) echo "api key: length=${#ANTHROPIC_API_KEY} prefix=ok" ;;
+              *) echo "api key: length=${#ANTHROPIC_API_KEY} prefix=UNEXPECTED" ;;
+            esac
+            echo "--- direct api check ---"
+            curl -s -o /tmp/body -w "http=%{http_code}\n" https://api.anthropic.com/v1/models \
+              -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01"
+            head -c 300 /tmp/body; echo
+          fi
+          claude -p "Reply with OK" --output-format text
 
       - name: Play the black move
         if: steps.turn.outputs.turn == 'black'
