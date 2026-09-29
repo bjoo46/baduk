@@ -83,7 +83,14 @@ jobs:
 
       - name: Probe Claude auth
         if: github.event.inputs.probe == 'true'
-        run: 'claude -p "Reply with exactly: OK" --output-format text'
+        run: |
+          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "oauth token length: ${#CLAUDE_CODE_OAUTH_TOKEN}"
+          fi
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "api key length: ${#ANTHROPIC_API_KEY}"
+          fi
+          claude -p "Reply with exactly: OK" --output-format text
 
       - name: Play the black move
         if: steps.turn.outputs.turn == 'black'
