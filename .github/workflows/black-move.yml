@@ -73,9 +73,13 @@ jobs:
           API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           if [ -n "$OAUTH_TOKEN" ]; then
-            echo "CLAUDE_CODE_OAUTH_TOKEN=$OAUTH_TOKEN" >> "$GITHUB_ENV"
+            CLEAN=$(printf '%s' "$OAUTH_TOKEN" | tr -d '[:space:]')
+            echo "oauth token lengths: raw=${#OAUTH_TOKEN} clean=${#CLEAN}"
+            echo "CLAUDE_CODE_OAUTH_TOKEN=$CLEAN" >> "$GITHUB_ENV"
           elif [ -n "$API_KEY" ]; then
-            echo "ANTHROPIC_API_KEY=$API_KEY" >> "$GITHUB_ENV"
+            CLEAN=$(printf '%s' "$API_KEY" | tr -d '[:space:]')
+            echo "api key lengths: raw=${#API_KEY} clean=${#CLEAN}"
+            echo "ANTHROPIC_API_KEY=$CLEAN" >> "$GITHUB_ENV"
           else
             echo "::error::CLAUDE_CODE_OAUTH_TOKEN 또는 ANTHROPIC_API_KEY 시크릿이 필요합니다."
             exit 1
